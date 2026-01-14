@@ -8,7 +8,7 @@ import {
   type Transaction,
   TransactionSignature,
   UnlockingScript,
-  Utils,
+  Utils
 } from '@bsv/sdk'
 
 /**
@@ -231,9 +231,9 @@ export default class OrdLock {
     sourceSatoshis?: number,
     lockingScript?: Script
   ): {
-    sign: (tx: Transaction, inputIndex: number) => Promise<UnlockingScript>
-    estimateLength: () => Promise<number>
-  } {
+      sign: (tx: Transaction, inputIndex: number) => Promise<UnlockingScript>
+      estimateLength: () => Promise<number>
+    } {
     const p2pkh = new P2PKH().unlock(privateKey, signOutputs, anyoneCanPay, sourceSatoshis, lockingScript)
     return {
       sign: async (tx: Transaction, inputIndex: number) => {
@@ -263,9 +263,9 @@ export default class OrdLock {
     sourceSatoshis?: number,
     lockingScript?: Script
   ): {
-    sign: (tx: Transaction, inputIndex: number) => Promise<UnlockingScript>
-    estimateLength: (tx: Transaction, inputIndex: number) => Promise<number>
-  } {
+      sign: (tx: Transaction, inputIndex: number) => Promise<UnlockingScript>
+      estimateLength: (tx: Transaction, inputIndex: number) => Promise<number>
+    } {
     const purchase = {
       sign: async (tx: Transaction, inputIndex: number) => {
         if (tx.outputs.length < 2) {
@@ -288,7 +288,7 @@ export default class OrdLock {
 
         const input = tx.inputs[inputIndex]
         let sourceSats = sourceSatoshis as number
-        if (!sourceSats && input.sourceTransaction) {
+        if (!sourceSats && (input.sourceTransaction != null)) {
           sourceSats = input.sourceTransaction.outputs[input.sourceOutputIndex].satoshis as number
         } else if (!sourceSatoshis) {
           throw new Error('sourceTransaction or sourceSatoshis is required')
