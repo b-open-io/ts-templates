@@ -11,6 +11,20 @@ All notable changes to this project will be documented in this file. The format 
 
 ---
 
+## [1.1.5] - 2026-01-14
+
+### Added
+- Sigma template for SIGMA protocol signatures (BSM and BRC-77 algorithms)
+
+### Fixed
+- Export enums as runtime values instead of type-only exports:
+  - BSocialActionType, BSocialContext from BSocial
+  - MediaType, Encoding from B
+  - BAPAttestationType from BAP
+  - MAPCommand from MAP
+
+---
+
 ## [1.1.1] - 2025-12-28
 
 ### Added
