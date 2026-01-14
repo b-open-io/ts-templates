@@ -64,6 +64,7 @@
     "@bsv/wallet-toolbox": "^1.7.18",
     "@types/jest": "^30.0.0",
     "jest": "^30.2.0",
+    "sigma-protocol": "^0.1.8",
     "ts-jest": "^29.4.6",
     "ts-standard": "^12.0.2",
     "tsconfig-to-dual-package": "^1.2.0",
@@ -71,5 +72,13 @@
   },
   "dependencies": {
     "@bsv/sdk": "^1.9.31"
+  },
+  "peerDependencies": {
+    "sigma-protocol": "^0.1.8"
+  },
+  "peerDependenciesMeta": {
+    "sigma-protocol": {
+      "optional": true
+    }
   }
 }
