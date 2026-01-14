@@ -11,6 +11,20 @@ All notable changes to this project will be documented in this file. The format 
 
 ---
 
+## [1.1.6] - 2026-01-14
+
+### Added
+- VIDEO action type support in BSocial template
+- BSocialVideo interface with provider, videoID, duration, start properties
+- createVideo() static method for creating video transactions
+- Video decode support in BSocial.decode()
+- 8 new tests for video functionality
+
+### Changed
+- Updated @bsv/sdk to ^1.10.1
+
+---
+
 ## [1.1.5] - 2026-01-14
 
 ### Added

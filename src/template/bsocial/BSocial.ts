@@ -19,7 +19,8 @@ export enum BSocialActionType {
   UNLIKE = 'unlike',
   FOLLOW = 'follow',
   UNFOLLOW = 'unfollow',
-  MESSAGE = 'message'
+  MESSAGE = 'message',
+  VIDEO = 'video'
 }
 
 // Context types
@@ -63,6 +64,13 @@ export interface BSocialMessage extends BSocialAction {
   content: string
   mediaType?: string
   encoding?: string
+}
+
+export interface BSocialVideo extends BSocialAction {
+  provider: string
+  videoID: string
+  duration?: number
+  start?: number
 }
 
 export interface BSocialDecoded {
@@ -140,6 +148,19 @@ export default class BSocial implements ScriptTemplate {
     }
     if (this.action.type === BSocialActionType.FOLLOW && 'bapId' in this.action) {
       mapData.bapId = (this.action as BSocialFollow).bapId
+    }
+    if (this.action.type === BSocialActionType.VIDEO && 'provider' in this.action) {
+      const video = this.action as BSocialVideo
+      mapData.context = BSocialContext.VIDEO_ID
+      mapData.contextValue = video.videoID
+      mapData.subcontext = BSocialContext.PROVIDER
+      mapData.subcontextValue = video.provider
+      if (video.duration !== undefined) {
+        mapData.duration = String(video.duration)
+      }
+      if (video.start !== undefined) {
+        mapData.start = String(video.start)
+      }
     }
 
     // Add tags if present
@@ -343,6 +364,20 @@ export default class BSocial implements ScriptTemplate {
                     if (bapId != null && bapId !== '') {
                       (action as BSocialFollow).bapId = bapId
                     }
+                  } else if (type === BSocialActionType.VIDEO) {
+                    const videoAction = action as BSocialVideo
+                    if (contextValue != null && contextValue !== '') {
+                      videoAction.videoID = contextValue
+                    }
+                    if (subcontextValue != null && subcontextValue !== '') {
+                      videoAction.provider = subcontextValue
+                    }
+                    if (mapData.duration != null && mapData.duration !== '') {
+                      videoAction.duration = parseInt(mapData.duration, 10)
+                    }
+                    if (mapData.start != null && mapData.start !== '') {
+                      videoAction.start = parseInt(mapData.start, 10)
+                    }
                   }
 
                   // Extract tags
@@ -423,6 +458,18 @@ export default class BSocial implements ScriptTemplate {
    */
   static async createMessage (message: BSocialMessage, identityKey?: PrivateKey): Promise<LockingScript> {
     const bsocial = new BSocial(message, message.content, undefined, identityKey)
+    return await bsocial.lock()
+  }
+
+  /**
+   * Creates a video transaction
+   *
+   * @param video The video data including provider and videoID
+   * @param identityKey Optional private key for AIP signature
+   * @returns A locking script for the video
+   */
+  static async createVideo (video: BSocialVideo, identityKey?: PrivateKey): Promise<LockingScript> {
+    const bsocial = new BSocial(video, undefined, undefined, identityKey)
     return await bsocial.lock()
   }
 }

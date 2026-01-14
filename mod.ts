@@ -8,7 +8,7 @@ export { default as AIP } from './src/template/bitcom/AIP.js'
 export { default as B, MediaType, Encoding } from './src/template/bitcom/B.js'
 export { default as BAP, BAPAttestationType } from './src/template/bitcom/BAP.js'
 export { default as MAP, MAP_PREFIX, MAPCommand } from './src/template/bitcom/MAP.js'
-export { default as Sigma, SIGMA_PREFIX } from './src/template/bitcom/Sigma.js'
+// Sigma requires sigma-protocol peer dep - import from '@bopen-io/templates/sigma' separately
 export { default as Inscription } from './src/template/inscription/Inscription.js'
 export { default as BSV21 } from './src/template/bsv21/BSV21.js'
 export { default as BSV20 } from './src/template/bsv20/BSV20.js'
@@ -20,7 +20,7 @@ export { MultiSigPubkeyHash } from './src/template/multisig/MultiSigPubkeyHash.j
 
 // Type exports
 export type { MultiPushDropDecoded } from './src/template/pushdrop/MultiPushDrop.js'
-export type { BSocialPost, BSocialLike, BSocialFollow, BSocialMessage, BSocialDecoded } from './src/template/bsocial/BSocial.js'
+export type { BSocialPost, BSocialLike, BSocialFollow, BSocialMessage, BSocialVideo, BSocialDecoded } from './src/template/bsocial/BSocial.js'
 export type { Protocol, BitComProtocol, BitComDecoded } from './src/template/bitcom/BitCom.js'
 export type { AIPData, AIPOptions } from './src/template/bitcom/AIP.js'
 export type { BData } from './src/template/bitcom/B.js'
