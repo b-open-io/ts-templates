@@ -1,6 +1,6 @@
 {
-  "name": "@bopen-io/ts-templates",
-  "version": "1.1.0",
+  "name": "@bopen-io/templates",
+  "version": "1.1.6",
   "type": "module",
   "description": "BSV Blockchain Script Templates",
   "main": "dist/cjs/mod.js",
@@ -61,14 +61,24 @@
   },
   "homepage": "https://github.com/b-open-io/ts-templates#readme",
   "devDependencies": {
+    "@bsv/wallet-toolbox": "^1.7.18",
     "@types/jest": "^30.0.0",
     "jest": "^30.2.0",
-    "ts-jest": "^29.4.5",
+    "sigma-protocol": "^0.1.8",
+    "ts-jest": "^29.4.6",
     "ts-standard": "^12.0.2",
     "tsconfig-to-dual-package": "^1.2.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@bsv/sdk": "^1.9.9"
+    "@bsv/sdk": "^1.10.1"
+  },
+  "peerDependencies": {
+    "sigma-protocol": "^0.1.8"
+  },
+  "peerDependenciesMeta": {
+    "sigma-protocol": {
+      "optional": true
+    }
   }
 }

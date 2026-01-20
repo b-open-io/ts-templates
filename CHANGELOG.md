@@ -9,6 +9,53 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+---
+
+## [1.1.6] - 2026-01-14
+
+### Added
+- VIDEO action type support in BSocial template
+- BSocialVideo interface with provider, videoID, duration, start properties
+- createVideo() static method for creating video transactions
+- Video decode support in BSocial.decode()
+- 8 new tests for video functionality
+
+### Changed
+- Updated @bsv/sdk to ^1.10.1
+
+---
+
+## [1.1.5] - 2026-01-14
+
+### Added
+- Sigma template for SIGMA protocol signatures (BSM and BRC-77 algorithms)
+
+### Fixed
+- Export enums as runtime values instead of type-only exports:
+  - BSocialActionType, BSocialContext from BSocial
+  - MediaType, Encoding from B
+  - BAPAttestationType from BAP
+  - MAPCommand from MAP
+
+---
+
+## [1.1.1] - 2025-12-28
+
+### Added
+- MultiSigPubkeyHash template from upstream (multi-signature support)
+- Cosign template for multi-signature co-signing workflows
+- Lock template for time-locked outputs
+- OrdLock template for ordinal-locked transactions
+- MAP template export
+
+### Changed
+- Synced with upstream bitcoin-sv/ts-templates (v1.3.0)
+- Updated to named exports for OpReturn and MultiPushDrop (breaking change from upstream)
+- Updated @bsv/sdk to 1.9.29
+- Added @bsv/wallet-toolbox dev dependency
+
+## [1.1.0] - Previous
+
 ### Added
 - (Include new features or significant user-visible enhancements here.)
 

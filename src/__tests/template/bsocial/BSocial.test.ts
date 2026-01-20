@@ -4,7 +4,8 @@ import BSocial, {
   BSocialPost,
   BSocialLike,
   BSocialFollow,
-  BSocialMessage
+  BSocialMessage,
+  BSocialVideo
 } from '../../../template/bsocial/BSocial'
 import { PrivateKey, Script, LockingScript, Utils } from '@bsv/sdk'
 
@@ -251,6 +252,80 @@ describe('BSocial', () => {
     })
   })
 
+  describe('createVideo', () => {
+    it('should create a video locking script', async () => {
+      const video: BSocialVideo = {
+        app: 'bsocial',
+        type: BSocialActionType.VIDEO,
+        provider: 'youtube',
+        videoID: 'dQw4w9WgXcQ'
+      }
+
+      const lockingScript = await BSocial.createVideo(video)
+      expect(lockingScript).toBeInstanceOf(LockingScript)
+      expect(lockingScript.chunks).toBeTruthy()
+    })
+
+    it('should create a video with identity key', async () => {
+      const video: BSocialVideo = {
+        app: 'bsocial',
+        type: BSocialActionType.VIDEO,
+        provider: 'youtube',
+        videoID: 'dQw4w9WgXcQ'
+      }
+
+      const lockingScript = await BSocial.createVideo(video, testPrivateKey)
+      expect(lockingScript).toBeInstanceOf(LockingScript)
+      expect(lockingScript.chunks).toBeTruthy()
+    })
+
+    it('should create a video with duration', async () => {
+      const video: BSocialVideo = {
+        app: 'bsocial',
+        type: BSocialActionType.VIDEO,
+        provider: 'youtube',
+        videoID: 'dQw4w9WgXcQ',
+        duration: 212
+      }
+
+      const lockingScript = await BSocial.createVideo(video)
+      expect(lockingScript).toBeInstanceOf(LockingScript)
+      expect(lockingScript.chunks).toBeTruthy()
+    })
+
+    it('should create a video with start time', async () => {
+      const video: BSocialVideo = {
+        app: 'bsocial',
+        type: BSocialActionType.VIDEO,
+        provider: 'youtube',
+        videoID: 'dQw4w9WgXcQ',
+        duration: 212,
+        start: 30
+      }
+
+      const lockingScript = await BSocial.createVideo(video)
+      expect(lockingScript).toBeInstanceOf(LockingScript)
+      expect(lockingScript.chunks).toBeTruthy()
+    })
+
+    it('should create a video with different providers', async () => {
+      const providers = ['youtube', 'vimeo', 'twitch', 'rumble']
+
+      for (const provider of providers) {
+        const video: BSocialVideo = {
+          app: 'bsocial',
+          type: BSocialActionType.VIDEO,
+          provider,
+          videoID: 'test123'
+        }
+
+        const lockingScript = await BSocial.createVideo(video)
+        expect(lockingScript).toBeInstanceOf(LockingScript)
+        expect(lockingScript.chunks).toBeTruthy()
+      }
+    })
+  })
+
   describe('createReply', () => {
     it('should create a reply locking script', async () => {
       const reply: BSocialPost = {
@@ -345,6 +420,46 @@ describe('BSocial', () => {
       expect(decoded?.action.app).toBe('bsocial')
       expect(decoded?.action.type).toBe(BSocialActionType.FOLLOW)
       expect((decoded?.action as BSocialFollow).bapId).toBe('test-bap-id')
+    })
+
+    it('should decode a video action', async () => {
+      const video: BSocialVideo = {
+        app: 'bsocial',
+        type: BSocialActionType.VIDEO,
+        provider: 'youtube',
+        videoID: 'dQw4w9WgXcQ'
+      }
+
+      const lockingScript = await BSocial.createVideo(video)
+      const decoded = BSocial.decode(lockingScript)
+
+      expect(decoded).toBeTruthy()
+      expect(decoded?.action.app).toBe('bsocial')
+      expect(decoded?.action.type).toBe(BSocialActionType.VIDEO)
+      expect((decoded?.action as BSocialVideo).videoID).toBe('dQw4w9WgXcQ')
+      expect((decoded?.action as BSocialVideo).provider).toBe('youtube')
+    })
+
+    it('should decode a video action with duration and start', async () => {
+      const video: BSocialVideo = {
+        app: 'bsocial',
+        type: BSocialActionType.VIDEO,
+        provider: 'youtube',
+        videoID: 'dQw4w9WgXcQ',
+        duration: 212,
+        start: 30
+      }
+
+      const lockingScript = await BSocial.createVideo(video)
+      const decoded = BSocial.decode(lockingScript)
+
+      expect(decoded).toBeTruthy()
+      expect(decoded?.action.app).toBe('bsocial')
+      expect(decoded?.action.type).toBe(BSocialActionType.VIDEO)
+      expect((decoded?.action as BSocialVideo).videoID).toBe('dQw4w9WgXcQ')
+      expect((decoded?.action as BSocialVideo).provider).toBe('youtube')
+      expect((decoded?.action as BSocialVideo).duration).toBe(212)
+      expect((decoded?.action as BSocialVideo).start).toBe(30)
     })
 
     it('should decode a reply with context', async () => {
@@ -458,6 +573,30 @@ describe('BSocial', () => {
       expect(decoded?.action.subcontextValue).toBe(post.subcontextValue)
       expect(decoded?.content).toBe(post.content)
       expect(decoded?.tags?.length).toBe(3)
+      expect(decoded?.aip).toBeTruthy()
+    })
+
+    it('should round-trip video with all options', async () => {
+      const video: BSocialVideo = {
+        app: 'bsocial',
+        type: BSocialActionType.VIDEO,
+        provider: 'youtube',
+        videoID: 'dQw4w9WgXcQ',
+        duration: 212,
+        start: 30
+      }
+
+      const lockingScript = await BSocial.createVideo(video, testPrivateKey)
+      const decoded = BSocial.decode(lockingScript)
+
+      expect(decoded).toBeTruthy()
+      expect(decoded?.action.app).toBe('bsocial')
+      expect(decoded?.action.type).toBe(BSocialActionType.VIDEO)
+      const decodedVideo = decoded?.action as BSocialVideo
+      expect(decodedVideo.videoID).toBe(video.videoID)
+      expect(decodedVideo.provider).toBe(video.provider)
+      expect(decodedVideo.duration).toBe(video.duration)
+      expect(decodedVideo.start).toBe(video.start)
       expect(decoded?.aip).toBeTruthy()
     })
   })
