@@ -1,4 +1,15 @@
-import { Script, Utils } from '@bsv/sdk'
+import {
+  Hash,
+  P2PKH,
+  type PrivateKey,
+  Script,
+  type Transaction,
+  TransactionSignature,
+  type UnlockingScript,
+  Utils,
+  type WalletInterface,
+  type WalletProtocol,
+} from '@bsv/sdk'
 
 /**
  * Lock PREFIX - sCrypt contract prefix shared with OrdLock template
@@ -136,5 +147,220 @@ export default class Lock {
     const prefixIndex = indexOf(scriptBinary, LOCK_PREFIX)
     if (prefixIndex === -1) return false
     return contains(scriptBinary, LOCK_SUFFIX, prefixIndex)
+  }
+
+  /**
+   * Creates a Lock locking script
+   *
+   * @param address - The address whose PKH is embedded in the lock
+   * @param until - Block height until which the output is locked
+   * @returns The locking script
+   */
+  static lock (address: string, until: number): Script {
+    const pkh = Utils.fromBase58Check(address).data as number[]
+    return new Script()
+      .writeScript(Script.fromBinary(LOCK_PREFIX))
+      .writeBin(pkh)
+      .writeNumber(until)
+      .writeScript(Script.fromBinary(LOCK_SUFFIX))
+  }
+
+  /**
+   * Creates an unlocking script template for spending a Lock output.
+   *
+   * The returned object follows the ScriptTemplate pattern with `sign` and `estimateLength`.
+   *
+   * @param privateKey - The private key corresponding to the locked address
+   * @param sighashType - Sighash type ('all', 'none', 'single')
+   * @param anyoneCanPay - Whether SIGHASH_ANYONECANPAY is set
+   * @param sourceSatoshis - Satoshis of the source output (optional if sourceTransaction is on the input)
+   * @param lockingScript - Locking script of the source output (optional if sourceTransaction is on the input)
+   * @returns Object with sign and estimateLength methods
+   */
+  static unlock (
+    privateKey: PrivateKey,
+    sighashType: 'all' | 'none' | 'single' = 'all',
+    anyoneCanPay = false,
+    sourceSatoshis?: number,
+    lockingScript?: Script,
+  ): {
+    sign: (tx: Transaction, inputIndex: number) => Promise<UnlockingScript>
+    estimateLength: (tx: Transaction, inputIndex: number) => Promise<number>
+  } {
+    const unlock = {
+      sign: async (tx: Transaction, inputIndex: number) => {
+        let signatureScope = TransactionSignature.SIGHASH_FORKID
+        if (sighashType === 'all') {
+          signatureScope |= TransactionSignature.SIGHASH_ALL
+        }
+        if (sighashType === 'none') {
+          signatureScope |= TransactionSignature.SIGHASH_NONE
+        }
+        if (sighashType === 'single') {
+          signatureScope |= TransactionSignature.SIGHASH_SINGLE
+        }
+        if (anyoneCanPay) {
+          signatureScope |= TransactionSignature.SIGHASH_ANYONECANPAY
+        }
+        const input = tx.inputs[inputIndex]
+
+        const otherInputs = tx.inputs.filter((_, index) => index !== inputIndex)
+
+        const sourceTXID = input.sourceTXID
+          ? input.sourceTXID
+          : input.sourceTransaction?.id('hex')
+        if (!sourceTXID) {
+          throw new Error(
+            'The input sourceTXID or sourceTransaction is required for transaction signing.'
+          )
+        }
+        sourceSatoshis ||= input.sourceTransaction?.outputs[input.sourceOutputIndex].satoshis
+        if (!sourceSatoshis) {
+          throw new Error(
+            'The sourceSatoshis or input sourceTransaction is required for transaction signing.'
+          )
+        }
+        lockingScript ||= input.sourceTransaction?.outputs[input.sourceOutputIndex].lockingScript
+        if (!lockingScript) {
+          throw new Error(
+            'The lockingScript or input sourceTransaction is required for transaction signing.'
+          )
+        }
+
+        const preimage = TransactionSignature.format({
+          sourceTXID,
+          sourceOutputIndex: input.sourceOutputIndex,
+          sourceSatoshis,
+          transactionVersion: tx.version,
+          otherInputs,
+          outputs: tx.outputs,
+          inputIndex,
+          subscript: lockingScript,
+          inputSequence: input.sequence === undefined ? 0xffffffff : input.sequence,
+          lockTime: tx.lockTime,
+          scope: signatureScope,
+        })
+
+        const p2pkh = new P2PKH().unlock(
+          privateKey,
+          sighashType,
+          anyoneCanPay,
+          sourceSatoshis,
+          lockingScript,
+        )
+        return (await p2pkh.sign(tx, inputIndex)).writeBin(preimage)
+      },
+      estimateLength: async (tx: Transaction, inputIndex: number) => {
+        return (await unlock.sign(tx, inputIndex)).toBinary().length
+      },
+    }
+    return unlock
+  }
+
+  /**
+   * Creates an unlocking script template using a BRC-100 wallet for signing.
+   *
+   * Uses wallet.createSignature and wallet.getPublicKey instead of a raw PrivateKey,
+   * enabling key derivation via protocolID/keyID.
+   *
+   * @param wallet - A BRC-100 WalletInterface with createSignature and getPublicKey
+   * @param protocolID - The protocol ID for key derivation
+   * @param keyID - The key ID for key derivation
+   * @param counterparty - The counterparty for key derivation (default: 'self')
+   * @param sighashType - Sighash type ('all', 'none', 'single')
+   * @param anyoneCanPay - Whether SIGHASH_ANYONECANPAY is set
+   * @returns Object with sign and estimateLength methods
+   */
+  static unlockWithWallet (
+    wallet: WalletInterface,
+    protocolID: WalletProtocol,
+    keyID: string,
+    counterparty: string = 'self',
+    sighashType: 'all' | 'none' | 'single' = 'all',
+    anyoneCanPay = false,
+  ): {
+    sign: (tx: Transaction, inputIndex: number) => Promise<UnlockingScript>
+    estimateLength: (tx: Transaction, inputIndex: number) => Promise<number>
+  } {
+    const unlock = {
+      sign: async (tx: Transaction, inputIndex: number) => {
+        let signatureScope = TransactionSignature.SIGHASH_FORKID
+        if (sighashType === 'all') {
+          signatureScope |= TransactionSignature.SIGHASH_ALL
+        }
+        if (sighashType === 'none') {
+          signatureScope |= TransactionSignature.SIGHASH_NONE
+        }
+        if (sighashType === 'single') {
+          signatureScope |= TransactionSignature.SIGHASH_SINGLE
+        }
+        if (anyoneCanPay) {
+          signatureScope |= TransactionSignature.SIGHASH_ANYONECANPAY
+        }
+        const input = tx.inputs[inputIndex]
+
+        const otherInputs = tx.inputs.filter((_, index) => index !== inputIndex)
+
+        const sourceTXID = input.sourceTXID
+          ? input.sourceTXID
+          : input.sourceTransaction?.id('hex')
+        if (!sourceTXID) {
+          throw new Error(
+            'The input sourceTXID or sourceTransaction is required for transaction signing.'
+          )
+        }
+        const sourceSatoshis = input.sourceTransaction?.outputs[input.sourceOutputIndex].satoshis
+        if (!sourceSatoshis) {
+          throw new Error(
+            'The sourceSatoshis or input sourceTransaction is required for transaction signing.'
+          )
+        }
+        const lockingScript = input.sourceTransaction?.outputs[input.sourceOutputIndex].lockingScript
+        if (!lockingScript) {
+          throw new Error(
+            'The lockingScript or input sourceTransaction is required for transaction signing.'
+          )
+        }
+
+        const preimage = TransactionSignature.format({
+          sourceTXID,
+          sourceOutputIndex: input.sourceOutputIndex,
+          sourceSatoshis,
+          transactionVersion: tx.version,
+          otherInputs,
+          outputs: tx.outputs,
+          inputIndex,
+          subscript: lockingScript,
+          inputSequence: input.sequence === undefined ? 0xffffffff : input.sequence,
+          lockTime: tx.lockTime,
+          scope: signatureScope,
+        })
+
+        const sighash = Hash.sha256(Hash.sha256(preimage))
+
+        const { signature } = await wallet.createSignature({
+          protocolID,
+          keyID,
+          counterparty,
+          hashToDirectlySign: Array.from(sighash),
+        })
+
+        const { publicKey } = await wallet.getPublicKey({
+          protocolID,
+          keyID,
+          counterparty,
+          forSelf: true,
+        })
+
+        return new Script()
+          .writeBin(signature)
+          .writeBin(Utils.toArray(publicKey, 'hex'))
+          .writeBin(Array.from(preimage))
+      },
+      estimateLength: async (tx: Transaction, inputIndex: number) => {
+        return (await unlock.sign(tx, inputIndex)).toBinary().length
+      },
+    }
+    return unlock
   }
 }
