@@ -1,5 +1,6 @@
 import {
   BigNumber,
+  Hash,
   type LockingScript,
   OP,
   P2PKH,
@@ -8,7 +9,9 @@ import {
   type Transaction,
   TransactionSignature,
   UnlockingScript,
-  Utils
+  Utils,
+  type WalletInterface,
+  type WalletProtocol,
 } from '@bsv/sdk'
 
 /**
@@ -241,6 +244,92 @@ export default class OrdLock {
       },
       estimateLength: async () => {
         return 107
+      }
+    }
+  }
+
+  /**
+   * Creates an unlocking script for cancelling a listing using a BRC-100 wallet.
+   *
+   * Uses wallet.createSignature and wallet.getPublicKey instead of a raw PrivateKey,
+   * enabling key derivation via protocolID/keyID.
+   *
+   * @param wallet - A BRC-100 WalletInterface
+   * @param protocolID - The protocol ID for key derivation
+   * @param keyID - The key ID for key derivation
+   * @param counterparty - The counterparty for key derivation (default: 'self')
+   * @returns Unlock template with sign and estimateLength methods
+   */
+  static cancelWithWallet (
+    wallet: WalletInterface,
+    protocolID: WalletProtocol,
+    keyID: string,
+    counterparty: string = 'self',
+  ): {
+    sign: (tx: Transaction, inputIndex: number) => Promise<UnlockingScript>
+    estimateLength: () => Promise<number>
+  } {
+    return {
+      sign: async (tx: Transaction, inputIndex: number) => {
+        const signatureScope =
+          TransactionSignature.SIGHASH_ALL |
+          TransactionSignature.SIGHASH_ANYONECANPAY |
+          TransactionSignature.SIGHASH_FORKID
+
+        const input = tx.inputs[inputIndex]
+
+        const sourceTXID = input.sourceTXID ?? input.sourceTransaction?.id('hex')
+        if (!sourceTXID) {
+          throw new Error('The input sourceTXID or sourceTransaction is required for signing.')
+        }
+        const sourceSatoshis = input.sourceTransaction?.outputs[input.sourceOutputIndex].satoshis
+        if (!sourceSatoshis) {
+          throw new Error('The sourceSatoshis or input sourceTransaction is required for signing.')
+        }
+        const lockingScript = input.sourceTransaction?.outputs[input.sourceOutputIndex].lockingScript
+        if (!lockingScript) {
+          throw new Error('The lockingScript or input sourceTransaction is required for signing.')
+        }
+
+        const preimage = TransactionSignature.format({
+          sourceTXID,
+          sourceOutputIndex: input.sourceOutputIndex,
+          sourceSatoshis,
+          transactionVersion: tx.version,
+          otherInputs: [],
+          inputIndex,
+          outputs: tx.outputs,
+          inputSequence: input.sequence ?? 0xffffffff,
+          subscript: lockingScript,
+          lockTime: tx.lockTime,
+          scope: signatureScope,
+        })
+
+        const sighash = Hash.sha256(Hash.sha256(preimage))
+
+        const { signature } = await wallet.createSignature({
+          protocolID,
+          keyID,
+          counterparty,
+          hashToDirectlySign: Array.from(sighash),
+        })
+
+        const { publicKey } = await wallet.getPublicKey({
+          protocolID,
+          keyID,
+          counterparty,
+          forSelf: true,
+        })
+
+        const sigWithHashtype = [...signature, signatureScope]
+
+        return new UnlockingScript()
+          .writeBin(sigWithHashtype)
+          .writeBin(Utils.toArray(publicKey, 'hex'))
+          .writeOpCode(OP.OP_1)
+      },
+      estimateLength: async () => {
+        return 108
       }
     }
   }
