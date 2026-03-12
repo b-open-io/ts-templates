@@ -1,5 +1,6 @@
-import { ScriptTemplate, LockingScript, UnlockingScript, PrivateKey, Utils, Script, OP, BigNumber, BSM, Signature } from '@bsv/sdk'
+import { ScriptTemplate, LockingScript, UnlockingScript, PublicKey, Utils, Script, OP, BigNumber, BSM, Signature } from '@bsv/sdk'
 import BitCom, { Protocol, BitComDecoded } from './BitCom.js'
+import type { Signer } from '../Signer.js'
 
 /**
  * AIP (Author Identity Protocol) prefix for BitCom transactions
@@ -112,40 +113,37 @@ export default class AIP implements ScriptTemplate {
   }
 
   /**
-   * Create AIP signature for data
+   * Create AIP signature for data using a Signer.
    *
    * @param data - Data to sign as number array
-   * @param privateKey - Private key for signing
+   * @param signer - A Signer (PrivateKeySigner or WalletSigner)
    * @param options - Additional signing options
    * @returns AIP signature object
    */
   static async sign (
     data: number[],
-    privateKey: PrivateKey,
+    signer: Signer,
     options: AIPOptions = {}
   ): Promise<AIP> {
     const algorithm = options.algorithm ?? 'BITCOIN_ECDSA'
-    const address = privateKey.toAddress().toString()
+    const bsmHash = BSM.magicHash(data)
 
-    // Use BSM signing following the pattern from BAP library
-    const dummySig = BSM.sign(data, privateKey, 'raw') as Signature
-    const messageHash = BSM.magicHash(data)
-    const recoveryFactor = dummySig.CalculateRecoveryFactor(privateKey.toPublicKey(), new BigNumber(messageHash))
+    const derSig = await signer.signHash(Array.from(bsmHash))
+    const pubKeyHex = await signer.getPublicKey()
 
-    // Create compact signature with recovery factor
-    const compactSig = (BSM.sign(data, privateKey, 'raw') as Signature).toCompact(
-      recoveryFactor,
-      true,
-      'base64'
-    ) as string
+    const publicKey = PublicKey.fromString(pubKeyHex)
+    const signature = Signature.fromDER(derSig)
+    const recovery = signature.CalculateRecoveryFactor(
+      publicKey,
+      new BigNumber(bsmHash)
+    )
 
-    // Convert to number array
-    const signatureArray = Array.from(Utils.toArray(compactSig, 'base64'))
+    const compactSig = signature.toCompact(recovery, true) as number[]
 
     return new AIP({
       algorithm,
-      address,
-      signature: signatureArray,
+      address: publicKey.toAddress(),
+      signature: compactSig,
       fieldIndexes: options.fieldIndexes,
       valid: true
     })

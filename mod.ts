@@ -18,6 +18,10 @@ export { default as Cosign } from './src/template/cosign/Cosign.js'
 
 export { MultiSigPubkeyHash } from './src/template/multisig/MultiSigPubkeyHash.js'
 
+// Signing abstraction
+export { PrivateKeySigner, WalletSigner } from './src/template/Signer.js'
+export type { Signer } from './src/template/Signer.js'
+
 // Type exports
 export type { MultiPushDropDecoded } from './src/template/pushdrop/MultiPushDrop.js'
 export type { BSocialPost, BSocialLike, BSocialFollow, BSocialMessage, BSocialVideo, BSocialDecoded } from './src/template/bsocial/BSocial.js'

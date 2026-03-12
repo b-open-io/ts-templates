@@ -1,8 +1,9 @@
-import { Script, ScriptTemplate, LockingScript, UnlockingScript, Transaction, Utils, PrivateKey } from '@bsv/sdk'
+import { Script, ScriptTemplate, LockingScript, UnlockingScript, Transaction, Utils } from '@bsv/sdk'
 import BitCom, { BitComDecoded } from '../bitcom/BitCom.js'
 import B from '../bitcom/B.js'
 import MAP from '../bitcom/MAP.js'
 import AIP from '../bitcom/AIP.js'
+import type { Signer } from '../Signer.js'
 
 // Constants for BSocial protocol
 const BSOCIAL_APP_NAME = 'bsocial'
@@ -91,13 +92,13 @@ export default class BSocial implements ScriptTemplate {
   private readonly action: BSocialAction
   private readonly content?: string
   private readonly tags?: string[]
-  private readonly identityKey?: PrivateKey
+  private readonly signer?: Signer
 
-  constructor (action: BSocialAction, content?: string, tags?: string[], identityKey?: PrivateKey) {
+  constructor (action: BSocialAction, content?: string, tags?: string[], signer?: Signer) {
     this.action = action
     this.content = content
     this.tags = tags
-    this.identityKey = identityKey
+    this.signer = signer
   }
 
   /**
@@ -182,17 +183,16 @@ export default class BSocial implements ScriptTemplate {
       pos: protocols.length
     })
 
-    // Add AIP protocol for signature (if identity key provided)
-    if (this.identityKey != null) {
-      // Create data to sign (all protocol data)
-      const signatureData = []
+    // Add AIP protocol for signature (if signer provided)
+    if (this.signer != null) {
+      const signatureData: number[] = []
       for (const proto of protocols) {
         signatureData.push(...Utils.toArray(proto.protocol, 'utf8'))
         signatureData.push(...proto.script)
         signatureData.push(0x7c) // '|' separator
       }
 
-      const aipData = await AIP.sign(signatureData, this.identityKey)
+      const aipData = await AIP.sign(signatureData, this.signer)
       const aipScript = aipData.lock()
 
       // Extract only the AIP data from the script (skip OP_RETURN and protocol address)
@@ -223,38 +223,38 @@ export default class BSocial implements ScriptTemplate {
 
   /**
    * Creates a post transaction
-   *
-   * @param post The post data
-   * @param tags Optional tags for the post
-   * @param identityKey Optional private key for AIP signature
-   * @returns A locking script for the post
    */
-  static async createPost (post: BSocialPost, tags?: string[], identityKey?: PrivateKey): Promise<LockingScript> {
-    const bsocial = new BSocial(post, post.content, tags, identityKey)
+  static async createPost (post: BSocialPost, tags?: string[], signer?: Signer): Promise<LockingScript> {
+    const bsocial = new BSocial(post, post.content, tags, signer)
     return await bsocial.lock()
   }
 
   /**
    * Creates a like transaction
-   *
-   * @param like The like data
-   * @param identityKey Optional private key for AIP signature
-   * @returns A locking script for the like
    */
-  static async createLike (like: BSocialLike, identityKey?: PrivateKey): Promise<LockingScript> {
-    const bsocial = new BSocial(like, undefined, undefined, identityKey)
+  static async createLike (like: BSocialLike, signer?: Signer): Promise<LockingScript> {
+    const bsocial = new BSocial(like, undefined, undefined, signer)
     return await bsocial.lock()
   }
 
   /**
    * Creates a follow transaction
-   *
-   * @param follow The follow data
-   * @param identityKey Optional private key for AIP signature
-   * @returns A locking script for the follow
    */
-  static async createFollow (follow: BSocialFollow, identityKey?: PrivateKey): Promise<LockingScript> {
-    const bsocial = new BSocial(follow, undefined, undefined, identityKey)
+  static async createFollow (follow: BSocialFollow, signer?: Signer): Promise<LockingScript> {
+    const bsocial = new BSocial(follow, undefined, undefined, signer)
+    return await bsocial.lock()
+  }
+
+  /**
+   * Creates a reply transaction
+   */
+  static async createReply (reply: BSocialPost, replyTxId: string, tags?: string[], signer?: Signer): Promise<LockingScript> {
+    const replyAction = {
+      ...reply,
+      context: BSocialContext.TX,
+      contextValue: replyTxId
+    }
+    const bsocial = new BSocial(replyAction, reply.content, tags, signer)
     return await bsocial.lock()
   }
 
@@ -419,57 +419,26 @@ export default class BSocial implements ScriptTemplate {
 
   /**
    * Signs data with AIP protocol
-   *
-   * @param privateKey The private key to sign with
-   * @param message The message to sign
-   * @returns Base64 encoded signature
    */
-  static async signAIP (privateKey: PrivateKey, message: string): Promise<string> {
+  static async signAIP (signer: Signer, message: string): Promise<string> {
     const messageData = Utils.toArray(message, 'utf8')
-    const aipData = await AIP.sign(messageData, privateKey)
+    const aipData = await AIP.sign(messageData, signer)
     return Utils.toBase64(aipData.data.signature)
   }
 
   /**
-   * Creates a reply transaction
-   *
-   * @param reply The reply data
-   * @param replyTxId The transaction ID being replied to
-   * @param tags Optional tags for the reply
-   * @param identityKey Optional private key for AIP signature
-   * @returns A locking script for the reply
-   */
-  static async createReply (reply: BSocialPost, replyTxId: string, tags?: string[], identityKey?: PrivateKey): Promise<LockingScript> {
-    const replyAction = {
-      ...reply,
-      context: BSocialContext.TX,
-      contextValue: replyTxId
-    }
-    const bsocial = new BSocial(replyAction, reply.content, tags, identityKey)
-    return await bsocial.lock()
-  }
-
-  /**
    * Creates a message transaction
-   *
-   * @param message The message data
-   * @param identityKey Optional private key for AIP signature
-   * @returns A locking script for the message
    */
-  static async createMessage (message: BSocialMessage, identityKey?: PrivateKey): Promise<LockingScript> {
-    const bsocial = new BSocial(message, message.content, undefined, identityKey)
+  static async createMessage (message: BSocialMessage, signer?: Signer): Promise<LockingScript> {
+    const bsocial = new BSocial(message, message.content, undefined, signer)
     return await bsocial.lock()
   }
 
   /**
    * Creates a video transaction
-   *
-   * @param video The video data including provider and videoID
-   * @param identityKey Optional private key for AIP signature
-   * @returns A locking script for the video
    */
-  static async createVideo (video: BSocialVideo, identityKey?: PrivateKey): Promise<LockingScript> {
-    const bsocial = new BSocial(video, undefined, undefined, identityKey)
+  static async createVideo (video: BSocialVideo, signer?: Signer): Promise<LockingScript> {
+    const bsocial = new BSocial(video, undefined, undefined, signer)
     return await bsocial.lock()
   }
 }

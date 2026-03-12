@@ -11,6 +11,20 @@ All notable changes to this project will be documented in this file. The format 
 
 ---
 
+## [1.2.3] - 2026-03-12
+
+### Added
+- `Signer` interface for unified message signing abstraction
+- `PrivateKeySigner` adapter for raw PrivateKey signing
+- `WalletSigner` adapter for BRC-100 WalletInterface signing
+
+### Changed
+- `AIP.sign()` now accepts a `Signer` instead of `PrivateKey` (breaking)
+- `BSocial` constructor and all static methods accept `Signer` instead of `PrivateKey` (breaking)
+- Removed `AIP.signWithWallet()` — use `AIP.sign()` with `WalletSigner` instead
+
+---
+
 ## [1.1.6] - 2026-01-14
 
 ### Added
